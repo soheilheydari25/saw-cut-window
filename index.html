@@ -550,10 +550,14 @@ function svgChart(m, hours) {
   for (const x of [xr, xc]) g += `<line x1="${f(x)}" x2="${f(x)}" y1="${T}" y2="${H - B}" stroke="var(--strength)" stroke-width="1.6" stroke-dasharray="6 5"/>`;
   // zone labels
   const lab = (x0, x1, text, cls) => {
-    if (x1 - x0 < 52) return "";
-    const words = text.split(" "), cx = (x0 + x1) / 2;
-    const lines = (x1 - x0) > text.length * 8.5 ? [text] : words;
-    return lines.map((w, i) => `<text class="zl ${cls || ""}" x="${f(cx)}" y="${T + 22 + i * 18}" text-anchor="middle">${w}</text>`).join("");
+    const wd = x1 - x0, cx = (x0 + x1) / 2;
+    if (wd < 40) return "";
+    let lines = wd > text.length * 8.5 ? [text] : text.split(" ");
+    let size = 14;
+    const longest = Math.max(...lines.map(l => l.length));
+    if (longest * 8 > wd - 6) { size = 11; lines = text.replace("Saw-cutting", "Saw-cut").split(" "); }
+    if (Math.max(...lines.map(l => l.length)) * 6.4 > wd - 4) return "";
+    return lines.map((w, i) => `<text class="zl ${cls || ""}" x="${f(cx)}" y="${T + 22 + i * (size + 4)}" text-anchor="middle" font-size="${size}">${w}</text>`).join("");
   };
   g += lab(X(0), xr, "Ravelling risk");
   g += lab(xr, xc, "Saw-cutting window");
