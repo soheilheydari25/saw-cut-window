@@ -410,16 +410,21 @@ function earlyAge(hours, thk, tcoff) {
   const tRavel = ravelPt.t;
 
   // the first night-time cooling peak far enough after ravelling ends becomes the critical peak
-  const w = Math.round(1 / dt), maxTop = Math.max(...pts.map(p => p.rawTop));
+  // search only the first night after the window opens (tRavel + minGap to tRavel + 24 h),
+  // so a mild first night never pushes the window out to the second night
+  const w = Math.round(1 / dt);
+  const lo = tRavel + MODEL.minGap, hi = Math.min(pts[pts.length - 1].t, tRavel + 24);
+  const inRange = pts.filter(p => p.t >= lo && p.t <= hi);
+  const maxIn = Math.max(0, ...inRange.map(p => p.rawTop));
   let crit = null;
   for (let i = w; i < pts.length - w; i++) {
     const p = pts[i];
-    if (p.t < tRavel + MODEL.minGap || p.rawTop < 0.15 * maxTop) continue;
+    if (p.t < lo || p.t > hi || p.rawTop < 0.3 * maxIn || p.rawTop <= 0) continue;
     let isPeak = true;
     for (let j = i - w; j <= i + w; j++) if (pts[j].rawTop > p.rawTop) { isPeak = false; break; }
     if (isPeak) { crit = p; break; }
   }
-  if (!crit) crit = pts.filter(p => p.t >= tRavel + MODEL.minGap).reduce((a, p) => (!a || p.rawTop > a.rawTop ? p : a), null);
+  if (!crit) crit = inRange.reduce((a, p) => (!a || p.rawTop > a.rawTop ? p : a), null);
   if (!crit || crit.rawTop <= 0) return { pts, tRavel, error: "There is no cooling cycle in the 72 hours after the pour to build a stress profile from." };
 
   // scale stresses so the critical peak reaches critRatio × strength,
