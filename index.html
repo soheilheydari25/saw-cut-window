@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Saw Cut Window</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a site docket. Inputs panel on the left (stacks on phones), results on the right:
+   summary strip first, then the hourly weather table with a sticky label column. */
+:root {
+  --bg: #eef0ec;          /* cured-concrete grey, slight green bias */
+  --surface: #ffffff;
+  --ink: #1b2320;
+  --muted: #5a6660;
+  --line: #d3d9d4;
+  --accent: #0e6656;      /* survey teal */
+  --accent-ink: #ffffff;
+  --ok: #2f7a47;   --ok-bg: #e2f1e6;
+  --warn: #9a6410; --warn-bg: #fbeed3;
+  --crit: #a8251c; --crit-bg: #f9dcd8;
+  --rain: #22609f; --rain-bg: #dde9f6;
+  --cool-bg: #e3edf3; --hot-bg: #f8e4d6;
+  --st-top: #f6d55c; --st-bot: #a9dba5; --st-line: #b8352b; --st-over: #d93a2e; --strength: #17202b; --zone: #e4e8ec;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a18; --surface: #1c2421; --ink: #e5ebe7; --muted: #9aa8a1; --line: #2f3a36;
+    --accent: #3fb59c; --accent-ink: #0c1412;
+    --ok: #7ccf95; --ok-bg: #1d3426; --warn: #f0b85a; --warn-bg: #3b2c12;
+    --crit: #ff8f84; --crit-bg: #45201c; --rain: #8cbcf0; --rain-bg: #1b2d42;
+    --cool-bg: #1d2c35; --hot-bg: #3a2619;
+    --st-top: #b8962a; --st-bot: #4f8a55; --st-line: #ff8f84; --st-over: #e0473b; --strength: #e5ebe7; --zone: #26302d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a18; --surface: #1c2421; --ink: #e5ebe7; --muted: #9aa8a1; --line: #2f3a36;
+  --accent: #3fb59c; --accent-ink: #0c1412;
+  --ok: #7ccf95; --ok-bg: #1d3426; --warn: #f0b85a; --warn-bg: #3b2c12;
+  --crit: #ff8f84; --crit-bg: #45201c; --rain: #8cbcf0; --rain-bg: #1b2d42;
+  --cool-bg: #1d2c35; --hot-bg: #3a2619;
+  --st-top: #b8962a; --st-bot: #4f8a55; --st-line: #ff8f84; --st-over: #e0473b; --strength: #e5ebe7; --zone: #26302d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 16px/1.55 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 20px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+header.top h1 { font: 700 2.1rem/1.1 var(--font-display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.byline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-left: auto; }
+.demo-badge { font: 700 .8rem var(--font-display); text-transform: uppercase; letter-spacing: .08em; color: var(--crit); background: var(--crit-bg); border: 1px solid var(--crit); border-radius: 4px; padding: 3px 9px; }
+.byline .by { font-size: .9rem; font-weight: 500; color: var(--muted); }
+header.top .tag { font: 500 .78rem var(--font-data); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+
+.layout { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+form.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: grid; gap: 18px; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
+legend { font: 600 .85rem var(--font-display); text-transform: uppercase; letter-spacing: .07em; color: var(--accent); padding: 0; margin-bottom: 4px; }
+.row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+label { display: grid; gap: 4px; font-size: .85rem; font-weight: 500; color: var(--muted); min-width: 0; }
+input, select, button { font: inherit; color: var(--ink); }
+input, select {
+  width: 100%; min-width: 0; padding: 8px 9px; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--bg); font-family: var(--font-body); font-size: 1rem; font-variant-numeric: tabular-nums;
+}
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mixcard { font-size: .85rem; line-height: 1.45; color: var(--muted); border-left: 3px solid var(--line); padding: 4px 0 4px 10px; display: grid; gap: 2px; }
+.mixcard b { color: var(--ink); font-weight: 600; }
+.locsearch { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.btn-ghost { border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+.btn-ghost:hover { border-color: var(--accent); }
+.results { display: grid; gap: 4px; }
+.results button { text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 4px; padding: 7px 10px; cursor: pointer; font-size: .9rem; }
+.results button:hover { border-color: var(--accent); }
+.chosen { font-size: .85rem; color: var(--ink); background: var(--bg); border: 1px dashed var(--line); border-radius: 4px; padding: 6px 9px; }
+.hint { font-size: .85rem; color: var(--muted); margin: 0; }
+.submit {
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 4px; padding: 12px 14px;
+  font: 700 1.1rem var(--font-display); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; width: 100%;
+}
+.cta { display: grid; gap: 6px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.cta .hint { text-align: center; }
+.submit:hover { filter: brightness(1.08); }
+.submit[disabled] { opacity: .6; cursor: progress; }
+
+section.out { display: grid; gap: 16px; min-width: 0; }
+.status { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-size: .92rem; }
+.status.err { border-color: var(--crit); background: var(--crit-bg); color: var(--crit); }
+.summary { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 12px; }
+.summary h2 { margin: 0; font: 700 1.05rem var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+.summary dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 20px; }
+.summary dl > div { display: grid; gap: 2px; min-width: 0; }
+.summary dt { font: 600 .75rem var(--font-display); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.summary dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.summary dd small { display: block; font-weight: 400; color: var(--muted); font-size: .85rem; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1000px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.tile .k { font: 600 .78rem var(--font-display); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.tile .v { font: 500 1.35rem var(--font-data); font-variant-numeric: tabular-nums; }
+.tile .s { font-size: .85rem; color: var(--muted); }
+.tile.warn { border-color: var(--warn); } .tile.warn .v { color: var(--warn); }
+.tile.crit { border-color: var(--crit); } .tile.crit .v { color: var(--crit); }
+.tile.ok .v { color: var(--ok); }
+.chartcard { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.chartcard h2 { margin: 0; font: 700 1.05rem var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+.wresult { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 20px; }
+.wresult > div { display: grid; gap: 2px; min-width: 0; }
+.wresult .k { font: 600 .75rem var(--font-display); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.wresult .v { font-weight: 600; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.wresult .v.open { color: var(--ok); } .wresult .v.close { color: var(--crit); }
+.wresult small { color: var(--muted); font-size: .85rem; }
+.clegend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .85rem; color: var(--ink); }
+.clegend span { display: inline-flex; align-items: center; gap: 6px; }
+.clegend i { display: inline-block; width: 18px; height: 11px; border-radius: 2px; }
+.clegend i.line { height: 3px; border-radius: 2px; }
+.chartwrap { overflow-x: auto; }
+.chartwrap svg { display: block; width: 100%; min-width: 620px; height: auto; font-family: var(--font-body); }
+.chartwrap .ax { fill: var(--muted); font-size: 13px; }
+.chartwrap .axt { fill: var(--ink); font-size: 14px; font-weight: 500; }
+.chartwrap .zl { fill: var(--ink); font-size: 14px; font-weight: 600; }
+.chartwrap .zl.bad { fill: var(--crit); }
+.chartwrap .call { fill: var(--ink); font-size: 13px; }
+.chartwrap .demo { fill: var(--muted); font-size: 11px; font-style: italic; }
+details.assume { font-size: .88rem; color: var(--muted); }
+details.assume summary { cursor: pointer; color: var(--ink); font-weight: 500; }
+details.assume ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; max-width: 90ch; }
+.sawnote { font-size: .9rem; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 10px 14px; }
+.sawnote b { color: var(--ink); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .85rem; color: var(--muted); align-items: center; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line); }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: separate; border-spacing: 0; font: .8rem var(--font-data); font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 7px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); }
+thead th { background: var(--surface); color: var(--muted); font-weight: 500; }
+thead tr.days th { font: 600 .8rem var(--font-display); letter-spacing: .05em; text-transform: uppercase; color: var(--ink); text-align: left; border-left: 2px solid var(--ink); }
+th.lab, td.lab {
+  position: sticky; left: 0; z-index: 2; background: var(--surface); text-align: left;
+  font-family: var(--font-body); font-size: .85rem; color: var(--ink); border-right: 1px solid var(--line); min-width: 180px;
+}
+td.lab small { color: var(--muted); font-family: var(--font-data); font-size: .7rem; }
+td.daystart, th.daystart { border-left: 2px solid var(--ink); }
+td.night { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+td.ev-ok { background: var(--ok-bg); color: var(--ok); }
+td.ev-warn { background: var(--warn-bg); color: var(--warn); font-weight: 500; }
+td.ev-crit { background: var(--crit-bg); color: var(--crit); font-weight: 500; }
+td.rain { background: var(--rain-bg); color: var(--rain); font-weight: 500; }
+td.hot { background: var(--hot-bg); }
+td.cool { background: var(--cool-bg); }
+td.pour { box-shadow: inset 2px 0 0 var(--accent); }
+tr.ev td.lab { font-weight: 600; }
+footer.notes { font-size: .82rem; color: var(--muted); display: grid; gap: 4px; max-width: 80ch; }
+footer.notes p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Saw Cut Window</h1>
+    <div class="byline">
+      <span class="demo-badge">Demo only</span>
+      <span class="by">Prepared by Soheil Heydari</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <form class="panel" id="form" novalidate>
+      <div class="cta">
+        <button class="submit" id="go" type="submit">Saw cutting window calculator</button>
+        <p class="hint">Fill out the pour details below, then press the button.</p>
+      </div>
+      <fieldset>
+        <legend>Slab</legend>
+        <div class="row3">
+          <label for="len">Length (m)<input id="len" type="number" min="0.5" step="0.1" value="4.5" required></label>
+          <label for="wid">Width (m)<input id="wid" type="number" min="0.5" step="0.1" value="3.7" required></label>
+          <label for="thk">Thickness (mm)<input id="thk" type="number" min="100" step="5" value="250" required></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Concrete mix (TfNSW register, R83)</legend>
+        <label for="mix">Registered mix
+          <select id="mix"></select>
+        </label>
+        <div class="mixcard" id="mixcard"></div>
+        <label for="tcoff">Concrete temp above air (°C)
+          <input id="tcoff" type="number" step="0.5" value="3">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Location</legend>
+        <div class="locsearch">
+          <label for="q" style="grid-column:1/-1">Suburb or town</label>
+          <input id="q" type="text" value="Penrith" autocomplete="off">
+          <button type="button" class="btn-ghost" id="findbtn">Find</button>
+        </div>
+        <div class="results" id="locresults"></div>
+        <div class="chosen" id="chosen"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Pour</legend>
+        <div class="row2">
+          <label for="pdate">Date<input id="pdate" type="date" required></label>
+          <label for="ptime">Start time<input id="ptime" type="time" step="3600" value="06:00" required></label>
+        </div>
+        <p class="hint" id="horizon"></p>
+      </fieldset>
+
+    </form>
+
+    <section class="out" id="out" aria-live="polite">
+      <div class="status err" id="status">This page's script hasn't started. If this message stays, the app you opened it in is blocking it. Download the file and open it in Chrome, Edge or Safari on a computer.</div>
+    </section>
+  </div>
+
+  <footer class="notes">
+    <p>Weather: Open-Meteo forecast and archive APIs (free for non-commercial use, CC BY 4.0), which include the Bureau of Meteorology ACCESS models. Times are local to the pour site.</p>
+    <p>Evaporation rate uses the Uno (1998) form of the ACI 305 nomograph: E = 5[(Tc+18)<sup>2.5</sup> − r(Ta+18)<sup>2.5</sup>](V+4)×10<sup>−6</sup> kg/m²/h, with wind at 10 m height (conservative versus the 0.5 m reference height).</p>
+    <p>Mix list: R83 mixes from the TfNSW Concrete Mix Register (updated 20 Oct 2026), pages 1–20 of 35. Demo only; not for construction decisions.</p>
+  </footer>
+</div>
+
+<script>
+// R83 (Concrete Pavement Base) mixes taken from the TfNSW Concrete Mix Register, pages 1-20.
+const MIXES = [
+  { id: "241004", spec: "R83 (3,3)", status: "Conforming", supplier: "Heidelberg Materials Australia", region: "Sydney",
+    desc: "S35, 20 mm agg, 45 mm slump, CRCP, machine placed", plants: "All Sydney Metro", validTo: "08 Feb 2027" },
+  { id: "241003", spec: "R83 (3,3)", status: "Conforming", supplier: "Heidelberg Materials Australia", region: "Sydney",
+    desc: "S35, 20 mm agg, 60 mm slump, CRCP, hand placed", plants: "All Sydney Metro", validTo: "08 Feb 2027" },
+  { id: "NS352FRTH_25105", spec: "R83 (3,3)", status: "Conforming", supplier: "Holcim", region: "Hunter",
+    desc: "S35, CRCP, hand placed, 20 mm agg, 65 mm slump", plants: "Tighes Hill; Wyong; Teralba; Salamander Bay; Heatherbrae", validTo: "22 Apr 2028" },
+  { id: "NS352FRTH_Q2019", spec: "R83 (3,3)", status: "Conforming", supplier: "Holcim Northern Rivers", region: "Northern",
+    desc: "S35, base, hand placed, 20 mm agg, 60 mm slump, steel fibre", plants: "Byron Bay/Ballina; Alstonville; Brunswick Heads; Casino; Yamba; Lismore", validTo: "15 Feb 2027" }
+];
+
+const $ = (id) => document.getElementById(id);
+const state = { loc: { name: "Penrith", admin: "New South Wales", lat: -33.7511, lon: 150.6942, query: "penrith" } };
+const norm = (s) => s.trim().toLowerCase();
+
+// ---------- dates ----------
+const pad = (n) => String(n).padStart(2, "0");
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function addDays(s, n) { const d = new Date(s + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function dayDiff(a, b) { return Math.round((new Date(a + "T00:00:00Z") - new Date(b + "T00:00:00Z")) / 86400000); }
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function dayLabel(s) { const d = new Date(s + "T00:00:00Z"); return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; }
+
+// ---------- form setup ----------
+function initForm() {
+  const sel = $("mix");
+  MIXES.forEach((m, i) => {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = `${m.id} · ${m.supplier} (${m.region})`;
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", showMix);
+  showMix();
+  const t = todayStr();
+  $("pdate").value = addDays(t, 1);
+  $("horizon").textContent = `Forecast covers pours up to ${dayLabel(addDays(t, 11))}. Earlier dates use recorded weather.`;
+  showChosen();
+}
+function showMix() {
+  const m = MIXES[+$("mix").value];
+  $("mixcard").innerHTML = "";
+  const lines = [
+    ["Mix", `${m.id} — ${m.spec}, ${m.status}`],
+    ["Description", m.desc],
+    ["Plants", m.plants],
+    ["Valid to", m.validTo]
+  ];
+  for (const [k, v] of lines) {
+    const div = document.createElement("div");
+    const b = document.createElement("b"); b.textContent = k + ": ";
+    div.appendChild(b); div.appendChild(document.createTextNode(v));
+    $("mixcard").appendChild(div);
+  }
+}
+function showChosen() {
+  const l = state.loc;
+  $("chosen").textContent = `${l.name}${l.admin ? ", " + l.admin : ""} · ${l.lat.toFixed(4)}, ${l.lon.toFixed(4)}`;
+}
+
+// ---------- location search ----------
+async function findLocation() {
+  const q = $("q").value.trim();
+  const box = $("locresults");
+  box.innerHTML = "";
+  if (!q) return;
+  box.textContent = "Searching…";
+  try {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&countryCode=AU&format=json`;
+    const r = await fetchJSON(url);
+    box.innerHTML = "";
+    if (!r.results || !r.results.length) { box.textContent = `No Australian place called "${q}" found. Try a nearby town.`; return; }
+    r.results.forEach((p) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `${p.name}${p.admin1 ? ", " + p.admin1 : ""}${p.admin2 ? " (" + p.admin2 + ")" : ""}`;
+      b.addEventListener("click", () => {
+        state.loc = { name: p.name, admin: p.admin1 || "", lat: p.latitude, lon: p.longitude, query: norm(q) };
+        box.innerHTML = ""; showChosen();
+      });
+      box.appendChild(b);
+    });
+  } catch (e) {
+    box.textContent = `Location search failed: ${e.message}`;
+  }
+}
+
+async function fetchJSON(url) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const res = await fetch(url, { signal: ctl.signal });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.error) throw new Error(body.reason || `weather service returned ${res.status}`);
+    return body;
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("the weather service took too long to answer");
+    if (e instanceof TypeError) throw new Error("could not reach the weather service. Open this page in a normal browser tab with internet access");
+    throw e;
+  } finally { clearTimeout(timer); }
+}
+
+// ---------- physics ----------
+function evaporation(Tc, Ta, rh, V) {
+  const e = 5 * (Math.pow(Tc + 18, 2.5) - (rh / 100) * Math.pow(Ta + 18, 2.5)) * (V + 4) * 1e-6;
+  return Math.max(0, e);
+}
+
+// ---------- early-age model (hypothetical stresses, illustrative only) ----------
+const MODEL = {
+  Ea: 40000, Rg: 8.314,      // Arrhenius activation energy (J/mol), gas constant
+  t0: 5,                     // final set, equivalent hours at 20 °C
+  fcm: 43, s: 0.28,          // mean 28-day compressive strength for S35 (MPa), CEB-FIP cement rate factor
+  ftRavel: 0.5,              // tensile strength (MPa) needed before sawing without ravelling
+  hydA: 5, hydTp: 14,        // hydration temperature rise (°C, 250 mm slab) and time to peak (h)
+  solarGain: 0.012,          // surface heating per W/m² of sun (°C)
+  bottomShare: 0.6,          // bottom-tension stresses relative to top
+  critRatio: 1.2,            // first critical night peak reaches 1.2 × strength
+  minGap: 6,                 // first critical peak at least this many hours after ravelling ends
+  hrs: 72, step: 1 / 6       // chart span and model time step (h)
+};
+
+function interp(arr, x) {
+  const n = arr.length;
+  const g = (k) => { let j = Math.min(n - 1, Math.max(0, k)); while (arr[j] == null && j > 0) j--; return arr[j] == null ? 0 : arr[j]; };
+  const i = Math.floor(x), f = x - i;
+  const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
+  return 0.5 * (2 * p1 + (-p0 + p2) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f + (-p0 + 3 * p1 - 3 * p2 + p3) * f * f * f);
+}
+
+function earlyAge(hours, thk, tcoff) {
+  const Ta = hours.map(h => h.Ta), Sw = hours.map(h => h.sw);
+  const span = Math.min(MODEL.hrs, hours.length - 1);
+  const dt = MODEL.step, depth = thk / 250;
+  const A = MODEL.hydA * Math.min(1.6, Math.max(0.6, depth));
+  const lag = 5 * depth * depth;           // hours for the slab bottom to follow the top
+  const pts = [];
+  let te = 0, Tbot = null;
+  for (let k = 0; k * dt <= span + 1e-9; k++) {
+    const t = k * dt;
+    const ta = interp(Ta, t), sw = Math.max(0, interp(Sw, t));
+    const hyd = A * (t / MODEL.hydTp) * Math.exp(1 - t / MODEL.hydTp);
+    const Tc = ta + tcoff + hyd;
+    const Ts = Tc + MODEL.solarGain * sw;
+    if (Tbot === null) Tbot = Ts;
+    Tbot += (Ts - Tbot) * (dt / (lag + dt));
+    if (k > 0) te += dt * Math.exp(-MODEL.Ea / MODEL.Rg * (1 / (Tc + 273.15) - 1 / 293.15));
+    const td = (te - MODEL.t0) / 24;
+    const fc = td > 0 ? MODEL.fcm * Math.exp(MODEL.s * (1 - Math.sqrt(28 / td))) : 0;
+    const ft = 0.3 * Math.pow(fc, 2 / 3);
+    const Er = Math.pow(fc / MODEL.fcm, 0.8);   // stiffness proxy; rises no faster than strength just after set
+    const G = Ts - Tbot;
+    pts.push({ t, Tc, te, fc, ft, rawTop: Er * Math.max(0, -G), rawBot: MODEL.bottomShare * Er * Math.max(0, G) });
+  }
+
+  // smooth the stress drivers over about ±1 h so sunset and sunrise don't show as steps
+  const sm = Math.round(1 / dt);
+  const smooth = (key) => { const v = pts.map(p => p[key]); pts.forEach((p, i) => { let a = 0, n = 0; for (let j = Math.max(0, i - sm); j <= Math.min(v.length - 1, i + sm); j++) { a += v[j]; n++; } p[key] = a / n; }); };
+  smooth("rawTop"); smooth("rawBot");
+
+  const ravelPt = pts.find(p => p.ft >= MODEL.ftRavel);
+  if (!ravelPt) return { pts, error: "The concrete does not gain enough strength within 72 hours at these temperatures to saw safely. Check the pour date or protect the slab from cold." };
+  const tRavel = ravelPt.t;
+
+  // the first night-time cooling peak far enough after ravelling ends becomes the critical peak
+  const w = Math.round(1 / dt), maxTop = Math.max(...pts.map(p => p.rawTop));
+  let crit = null;
+  for (let i = w; i < pts.length - w; i++) {
+    const p = pts[i];
+    if (p.t < tRavel + MODEL.minGap || p.rawTop < 0.15 * maxTop) continue;
+    let isPeak = true;
+    for (let j = i - w; j <= i + w; j++) if (pts[j].rawTop > p.rawTop) { isPeak = false; break; }
+    if (isPeak) { crit = p; break; }
+  }
+  if (!crit) crit = pts.filter(p => p.t >= tRavel + MODEL.minGap).reduce((a, p) => (!a || p.rawTop > a.rawTop ? p : a), null);
+  if (!crit || crit.rawTop <= 0) return { pts, tRavel, error: "There is no cooling cycle in the 72 hours after the pour to build a stress profile from." };
+
+  // scale stresses so the critical peak reaches critRatio × strength,
+  // then soft-cap anything earlier at 85 % of strength (blended out by 4 h after the window opens)
+  const c = MODEL.critRatio * crit.ft / crit.rawTop;
+  const soft = (v, cap) => cap > 0 ? cap * Math.tanh(v / cap) : 0;
+  for (const p of pts) {
+    let top = c * p.rawTop, bot = c * p.rawBot;
+    const w = Math.min(1, Math.max(0, tRavel + 4 - p.t));
+    if (w > 0) { const cap = 0.85 * p.ft; top = w * soft(top, cap) + (1 - w) * top; bot = w * soft(bot, cap) + (1 - w) * bot; }
+    p.top = top; p.bot = bot; p.sig = Math.max(top, bot); p.R = p.ft > 0 ? p.sig / p.ft : 0;
+  }
+
+  let tCrack = null;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (b.t > tRavel && a.R < 1 && b.R >= 1) { tCrack = a.t + (1 - a.R) / (b.R - a.R) * (b.t - a.t); break; }
+  }
+  // keep later overshoots readable: compress stress above strength to at most ~30 % over
+  // bottom stresses stay below strength; top overshoots are kept to about 15 %
+  const squash = (v, ft) => v <= ft || ft <= 0 ? v : ft + 0.15 * ft * Math.tanh((v - ft) / (0.15 * ft));
+  for (const p of pts) {
+    if (p.t > tRavel + 4) p.bot = soft(p.bot, 0.8 * p.ft);
+    p.top = squash(p.top, p.ft); p.sig = Math.max(p.top, p.bot);
+  }
+  const tClose = tCrack ?? Math.max(tRavel + 2, crit.t - 2);
+  return { pts, tRavel, tCrack, tClose, tPeak: crit.t };
+}
+
+const r05 = (v) => Math.round(v * 2) / 2;
+function clockAt(hours, t) {
+  const base = new Date(hours[0].t + ":00Z").getTime() + Math.round(t * 4) * 15 * 60000;
+  const d = new Date(base);
+  return { day: `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`, time: `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}` };
+}
+
+function chartSection(m, hours) {
+  const sec = document.createElement("div");
+  sec.className = "chartcard";
+  const h2 = document.createElement("h2"); h2.textContent = "Saw-cutting window";
+  sec.appendChild(h2);
+  if (m.error) {
+    const e = document.createElement("div"); e.className = "status err"; e.textContent = m.error; sec.appendChild(e);
+    return sec;
+  }
+
+  const res = document.createElement("div"); res.className = "wresult";
+  const o = clockAt(hours, m.tRavel), c = clockAt(hours, m.tClose);
+  const cell = (k, v, sub, cls) => {
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="k"></span><span class="v ${cls || ""}"></span><small></small>`;
+    d.children[0].textContent = k; d.children[1].textContent = v; d.children[2].textContent = sub;
+    res.appendChild(d);
+  };
+  const q = (v) => (Math.round(v * 4) / 4).toFixed(2).replace(/0$/, "").replace(/\.0$/, "");
+  cell("Window opens", `${o.day}, ${o.time}`, `${q(m.tRavel)} h after placement`, "open");
+  cell("Window closes", `${c.day}, ${c.time}`, `${q(m.tClose)} h after placement`, "close");
+  cell("Time available", `${q(m.tClose - m.tRavel)} h`, `First critical peak at ${q(m.tPeak)} h · finish sawing before the close`);
+  sec.appendChild(res);
+
+  const lg = document.createElement("div"); lg.className = "clegend";
+  lg.innerHTML = `<span><i style="background:var(--st-top)"></i>Stress, slab top</span>
+    <span><i style="background:var(--st-bot)"></i>Stress, slab bottom</span>
+    <span><i style="background:var(--st-over)"></i>Stress above strength</span>
+    <span><i class="line" style="background:var(--strength)"></i>Tensile strength f<sub>t</sub>(t)</span>
+    <span><i class="line" style="background:var(--st-line)"></i>Critical tensile stress σ<sub>t</sub>(t)</span>`;
+  sec.appendChild(lg);
+
+  const wrap = document.createElement("div"); wrap.className = "chartwrap";
+  wrap.innerHTML = svgChart(m, hours);
+  sec.appendChild(wrap);
+
+  const det = document.createElement("details"); det.className = "assume";
+  det.innerHTML = `<summary>Model assumptions</summary><ul>
+    <li>Concrete temperature = hourly air temperature + the offset you entered + a hydration rise of about ${MODEL.hydA} °C peaking ${MODEL.hydTp} h after placement (scaled with slab thickness).</li>
+    <li>Strength gain uses equivalent age at 20 °C (Arrhenius maturity, E<sub>a</sub> = 40 kJ/mol), so warm weather speeds it up and cold weather slows it down.</li>
+    <li>Compressive strength follows the CEB-FIP curve for S35 pavement concrete: mean 28-day strength ${MODEL.fcm} MPa, s = ${MODEL.s}, final set at ${MODEL.t0} h equivalent age. Tensile strength f<sub>t</sub> = 0.3 f<sub>c</sub><sup>2/3</sup>.</li>
+    <li>The window opens when f<sub>t</sub> reaches ${MODEL.ftRavel} MPa, the assumed limit for sawing without ravelling.</li>
+    <li>Stresses are hypothetical. Top tension comes from night-time cooling (top cooler than bottom); bottom tension comes from daytime sun and hydration heat. They grow with concrete stiffness.</li>
+    <li>Stresses are scaled so the first cooling peak at least ${MODEL.minGap} h after the window opens reaches ${MODEL.critRatio} × strength. The window closes when the stress-to-strength ratio R(t) first reaches 1.</li>
+  </ul>`;
+  sec.appendChild(det);
+  return sec;
+}
+
+function svgChart(m, hours) {
+  const W = 960, H = 460, L = 70, Rm = 24, T = 24, B = 70;
+  const span = MODEL.hrs, pts = m.pts;
+  const yMaxRaw = Math.max(...pts.map(p => Math.max(p.ft, p.sig || 0)));
+  const ymax = Math.max(1, Math.ceil(yMaxRaw * 1.15 * 2) / 2);
+  const X = (t) => L + t / span * (W - L - Rm);
+  const Y = (v) => H - B - v / ymax * (H - T - B);
+  const f = (n) => n.toFixed(1);
+  const line = (key) => pts.map((p, i) => `${i ? "L" : "M"}${f(X(p.t))},${f(Y(p[key]))}`).join("");
+  const area = (key) => `${line(key)}L${f(X(pts[pts.length - 1].t))},${f(Y(0))}L${f(X(0))},${f(Y(0))}Z`;
+  const over = (key) => {
+    const up = pts.map((p, i) => `${i ? "L" : "M"}${f(X(p.t))},${f(Y(Math.max(p[key], p.ft)))}`).join("");
+    const dn = pts.slice().reverse().map(p => `L${f(X(p.t))},${f(Y(p.ft))}`).join("");
+    return up + dn + "Z";
+  };
+  let g = "";
+  // zones
+  const xr = X(m.tRavel), xc = X(m.tClose);
+  g += `<rect x="${f(xr)}" y="${T}" width="${f(xc - xr)}" height="${H - T - B}" fill="var(--zone)"/>`;
+  // grid + y ticks
+  for (let v = 0; v <= ymax + 1e-9; v += 0.5) {
+    g += `<line x1="${L}" x2="${W - Rm}" y1="${f(Y(v))}" y2="${f(Y(v))}" stroke="var(--line)" stroke-width="1"/>`;
+    g += `<text class="ax" x="${L - 8}" y="${f(Y(v) + 4)}" text-anchor="end">${v.toFixed(1)}</text>`;
+  }
+  for (let t = 0; t <= span; t += 12) {
+    g += `<line x1="${f(X(t))}" x2="${f(X(t))}" y1="${T}" y2="${H - B}" stroke="var(--line)" stroke-width="1"/>`;
+    const ck = clockAt(hours, t);
+    g += `<text class="ax" x="${f(X(t))}" y="${H - B + 18}" text-anchor="middle">${t}</text>`;
+    g += `<text class="ax" x="${f(X(t))}" y="${H - B + 34}" text-anchor="middle" font-size="11">${ck.time}</text>`;
+  }
+  // stresses
+  g += `<path d="${area("bot")}" fill="var(--st-bot)"/>`;
+  g += `<path d="${area("top")}" fill="var(--st-top)"/>`;
+  g += `<path d="${over("top")}" fill="var(--st-over)"/><path d="${over("bot")}" fill="var(--st-over)"/>`;
+  g += `<path d="${line("sig")}" fill="none" stroke="var(--st-line)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  g += `<path d="${line("ft")}" fill="none" stroke="var(--strength)" stroke-width="3" stroke-linejoin="round"/>`;
+  // window boundaries
+  for (const x of [xr, xc]) g += `<line x1="${f(x)}" x2="${f(x)}" y1="${T}" y2="${H - B}" stroke="var(--strength)" stroke-width="1.6" stroke-dasharray="6 5"/>`;
+  // zone labels
+  const lab = (x0, x1, text, cls) => {
+    if (x1 - x0 < 52) return "";
+    const words = text.split(" "), cx = (x0 + x1) / 2;
+    const lines = (x1 - x0) > text.length * 8.5 ? [text] : words;
+    return lines.map((w, i) => `<text class="zl ${cls || ""}" x="${f(cx)}" y="${T + 22 + i * 18}" text-anchor="middle">${w}</text>`).join("");
+  };
+  g += lab(X(0), xr, "Ravelling risk");
+  g += lab(xr, xc, "Saw-cutting window");
+  g += lab(xc, X(span), "Nonconforming cracking", "bad");
+  // critical marker + callout
+  if (m.tCrack != null) {
+    const pc = pts.reduce((a, p) => Math.abs(p.t - m.tCrack) < Math.abs(a.t - m.tCrack) ? p : a, pts[0]);
+    const mx = X(m.tCrack), my = Y(pc.ft);
+    const tx = Math.min(W - Rm - 200, mx + 90), ty = Math.max(T + 80, my - 110);
+    g += `<line x1="${f(mx)}" y1="${f(my)}" x2="${f(tx - 6)}" y2="${f(ty + 8)}" stroke="var(--strength)" stroke-width="1.2"/>`;
+    g += `<rect x="${f(mx - 7)}" y="${f(my - 7)}" width="14" height="14" transform="rotate(45 ${f(mx)} ${f(my)})" fill="var(--st-top)" stroke="var(--strength)" stroke-width="1.5"/>`;
+    g += `<text class="call" x="${f(tx)}" y="${f(ty - 8)}">Critical cracking time</text>`;
+    g += `<text class="call" x="${f(tx)}" y="${f(ty + 10)}">R(t) = 1 at about ${fmt(r05(m.tCrack))} h</text>`;
+  }
+  // axes
+  g += `<line x1="${L}" x2="${W - Rm}" y1="${f(Y(0))}" y2="${f(Y(0))}" stroke="var(--strength)" stroke-width="1.5"/>`;
+  g += `<line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" stroke="var(--strength)" stroke-width="1.5"/>`;
+  g += `<text class="axt" x="${f((L + W - Rm) / 2)}" y="${H - 10}" text-anchor="middle">Hours after placement (local clock time below)</text>`;
+  g += `<text class="axt" transform="translate(20 ${f((T + H - B) / 2)}) rotate(-90)" text-anchor="middle">Tensile stress and strength (MPa)</text>`;
+  g += `<text class="demo" x="${W - Rm}" y="${H - 10}" text-anchor="end">Hypothetical stresses</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tensile strength and hypothetical stresses over 72 hours with the saw-cutting window">${g}</svg>`;
+}
+
+// ---------- main ----------
+async function run(ev) {
+  if (ev) ev.preventDefault();
+  const out = $("out");
+  const len = +$("len").value, wid = +$("wid").value, thk = +$("thk").value;
+  const date = $("pdate").value, time = $("ptime").value;
+  const tcoff = +$("tcoff").value || 0;
+  const mix = MIXES[+$("mix").value];
+  const errs = [];
+  if (!(len > 0) || !(wid > 0)) errs.push("Enter the slab length and width in metres.");
+  if (!(thk >= 100)) errs.push("Enter a slab thickness of at least 100 mm.");
+  if (!date) errs.push("Choose a pour date.");
+  if (!time) errs.push("Choose a pour start time.");
+  const today = todayStr();
+  const horizonEnd = addDays(today, 15);
+  const endDate = date ? addDays(date, 4) : null;
+  if (date && dayDiff(endDate, horizonEnd) > 0) errs.push(`The forecast only reaches ${dayLabel(horizonEnd)}, so the latest pour date this can cover is ${dayLabel(addDays(horizonEnd, -4))}.`);
+  if (date && date < "1940-01-01") errs.push("Recorded weather starts in 1940.");
+  if (errs.length) { showStatus(errs.join(" "), true); return; }
+
+  // If the suburb box was changed but no match was picked, look it up and use the top match.
+  const typed = $("q").value.trim();
+  if (typed && norm(typed) !== state.loc.query) {
+    $("go").disabled = true;
+    showStatus(`Looking up ${typed}…`);
+    try {
+      const g = await fetchJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(typed)}&count=1&language=en&countryCode=AU&format=json`);
+      if (!g.results || !g.results.length) { showStatus(`No Australian place called "${typed}" found. Check the spelling or try a nearby town.`, true); return; }
+      const p = g.results[0];
+      state.loc = { name: p.name, admin: p.admin1 || "", lat: p.latitude, lon: p.longitude, query: norm(typed) };
+      $("locresults").innerHTML = "";
+      showChosen();
+    } catch (e) {
+      showStatus(`Couldn't look up the location: ${e.message}.`, true); return;
+    } finally { $("go").disabled = false; }
+  }
+
+  const hh = time.slice(0, 2);
+  const startKey = `${date}T${hh}:00`;
+  const useArchive = dayDiff(today, date) > 85;
+  const vars = ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "precipitation", "shortwave_radiation"];
+  if (!useArchive) vars.push("precipitation_probability");
+  const host = useArchive ? "https://archive-api.open-meteo.com/v1/archive" : "https://api.open-meteo.com/v1/forecast";
+  const url = `${host}?latitude=${state.loc.lat}&longitude=${state.loc.lon}&hourly=${vars.join(",")}&timezone=auto&wind_speed_unit=kmh&start_date=${date}&end_date=${endDate}`;
+
+  $("go").disabled = true;
+  showStatus(`Fetching ${useArchive ? "recorded weather" : "the forecast"} for ${state.loc.name}…`);
+  try {
+    const d = await fetchJSON(url);
+    const H = d.hourly;
+    const i0 = H.time.indexOf(startKey);
+    if (i0 < 0) throw new Error("the pour hour is not in the returned data");
+    const hours = [];
+    for (let k = 0; k <= 96 && i0 + k < H.time.length; k++) {
+      const i = i0 + k;
+      const Ta = H.temperature_2m[i], rh = H.relative_humidity_2m[i], V = H.wind_speed_10m[i];
+      const ok = Ta != null && rh != null && V != null;
+      hours.push({
+        age: k, t: H.time[i], Ta, rh, V,
+        p: H.precipitation ? H.precipitation[i] : null,
+        pp: H.precipitation_probability ? H.precipitation_probability[i] : null,
+        sw: H.shortwave_radiation ? H.shortwave_radiation[i] : null,
+        E: ok ? evaporation(Ta + tcoff, Ta, rh, V) : null
+      });
+    }
+    render({ hours, mix, len, wid, thk, tcoff, useArchive, tz: d.timezone_abbreviation || d.timezone, elev: d.elevation });
+  } catch (e) {
+    showStatus(`Couldn't get the weather: ${e.message}.`, true);
+  } finally { $("go").disabled = false; }
+}
+
+function showStatus(msg, isErr) {
+  const out = $("out");
+  out.innerHTML = "";
+  const s = document.createElement("div");
+  s.className = "status" + (isErr ? " err" : "");
+  s.textContent = msg;
+  out.appendChild(s);
+}
+
+const fmt = (v, dp = 1) => (v == null || isNaN(v)) ? "–" : v.toFixed(dp);
+function evClass(E) { if (E == null) return ""; return E >= 1 ? "ev-crit" : E >= 0.5 ? "ev-warn" : "ev-ok"; }
+function hhmm(t) { return t.slice(11, 16); }
+
+function render({ hours, mix, len, wid, thk, tcoff, useArchive, tz, elev }) {
+  const out = $("out");
+  out.innerHTML = "";
+
+  // pour summary box
+  const area = len * wid, vol = area * thk / 1000;
+  const box = document.createElement("div");
+  box.className = "summary";
+  const h2 = document.createElement("h2"); h2.textContent = "Pour summary";
+  const dl = document.createElement("dl");
+  const items = [
+    ["Site", `${state.loc.name}${state.loc.admin ? ", " + state.loc.admin : ""}`, elev != null ? `Elevation ${Math.round(elev)} m` : ""],
+    ["Pour start", `${dayLabel(hours[0].t.slice(0, 10))}, ${hhmm(hours[0].t)}`, tz ? `Local time (${tz})` : "Local time"],
+    ["Slab", `${len} × ${wid} m × ${thk} mm`, `${area.toFixed(1)} m² · ${vol.toFixed(2)} m³`],
+    ["Mix", mix.id, `${mix.supplier} · ${mix.spec}`],
+    ["Weather data", useArchive ? "Recorded" : "Forecast", useArchive ? "ERA5 archive" : "Open-Meteo, hourly"]
+  ];
+  for (const [k, v, sub] of items) {
+    const g = document.createElement("div");
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v;
+    if (sub) { const sm = document.createElement("small"); sm.textContent = sub; dd.appendChild(sm); }
+    g.append(dt, dd); dl.appendChild(g);
+  }
+  box.append(h2, dl);
+  out.appendChild(box);
+
+  // summary tiles
+  const temps = hours.map(h => h.Ta).filter(v => v != null);
+  const Es = hours.filter(h => h.E != null);
+  const peak = Es.reduce((a, h) => (!a || h.E > a.E ? h : a), null);
+  const first12 = Es.filter(h => h.age <= 12);
+  const hi12 = first12.filter(h => h.E >= 1).length, mid12 = first12.filter(h => h.E >= 0.5 && h.E < 1).length;
+  const rainTotal = hours.reduce((s, h) => s + (h.p || 0), 0);
+  const firstRain = hours.find(h => (h.p || 0) >= 0.2);
+  const tiles = document.createElement("div");
+  tiles.className = "tiles";
+  const tile = (k, v, s, cls = "") => {
+    const t = document.createElement("div"); t.className = "tile " + cls;
+    t.innerHTML = `<span class="k"></span><span class="v"></span><span class="s"></span>`;
+    t.children[0].textContent = k; t.children[1].textContent = v; t.children[2].textContent = s;
+    tiles.appendChild(t);
+  };
+  tile("Air temperature, 96 h", `${fmt(Math.min(...temps))}–${fmt(Math.max(...temps))} °C`, `Min to max after the pour`);
+  tile("Peak evaporation", peak ? `${fmt(peak.E, 2)} kg/m²/h` : "–", peak ? `${dayLabel(peak.t.slice(0, 10))} ${hhmm(peak.t)} · ${peak.age} h after pour` : "", peak ? (peak.E >= 1 ? "crit" : peak.E >= 0.5 ? "warn" : "ok") : "");
+  tile("High evaporation, first 12 h", `${hi12} h ≥ 1.0`, `${mid12} more hours between 0.5 and 1.0`, hi12 ? "crit" : mid12 ? "warn" : "ok");
+  tile("Rain, 96 h", `${fmt(rainTotal)} mm`, firstRain ? `First rain ${dayLabel(firstRain.t.slice(0, 10))} ${hhmm(firstRain.t)} (${firstRain.age} h)` : "No rain in the period", firstRain && firstRain.age <= 12 ? "crit" : firstRain ? "warn" : "ok");
+  out.appendChild(tiles);
+
+  out.insertBefore(chartSection(earlyAge(hours, thk, tcoff), hours), tiles);
+
+  // legend
+  const lg = document.createElement("div");
+  lg.className = "legend";
+  lg.innerHTML = `<span><i class="sw" style="background:var(--ok-bg)"></i>Evaporation &lt; 0.5</span>
+    <span><i class="sw" style="background:var(--warn-bg)"></i>0.5–1.0 take precautions</span>
+    <span><i class="sw" style="background:var(--crit-bg)"></i>≥ 1.0 high risk of plastic shrinkage</span>
+    <span><i class="sw" style="background:var(--rain-bg)"></i>Rain ≥ 0.2 mm</span>
+    <span><i class="sw" style="background:var(--hot-bg)"></i>Air ≥ 30 °C</span>
+    <span><i class="sw" style="background:var(--cool-bg)"></i>Air ≤ 5 °C</span>`;
+  out.appendChild(lg);
+
+  // table: rows = variables, columns = hours
+  const wrap = document.createElement("div");
+  wrap.className = "tablewrap";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+
+  const dayRow = document.createElement("tr"); dayRow.className = "days";
+  const th0 = document.createElement("th"); th0.className = "lab"; th0.textContent = "Day"; dayRow.appendChild(th0);
+  const groups = [];
+  hours.forEach(h => {
+    const d = h.t.slice(0, 10);
+    if (!groups.length || groups[groups.length - 1].d !== d) groups.push({ d, n: 0 });
+    groups[groups.length - 1].n++;
+  });
+  groups.forEach(g => {
+    const th = document.createElement("th");
+    th.colSpan = g.n;
+    th.textContent = g.n >= 3 ? dayLabel(g.d) : "";
+    dayRow.appendChild(th);
+  });
+  thead.appendChild(dayRow);
+
+  const mkHeadRow = (label, fn) => {
+    const tr = document.createElement("tr");
+    const l = document.createElement("th"); l.className = "lab"; l.textContent = label; tr.appendChild(l);
+    hours.forEach((h, i) => {
+      const th = document.createElement("th"); th.textContent = fn(h);
+      if (i > 0 && h.t.slice(11, 13) === "00") th.classList.add("daystart");
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+  };
+  mkHeadRow("Local time", h => hhmm(h.t));
+  mkHeadRow("Hours after pour", h => "+" + h.age);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  const rows = [
+    { label: "Air temperature", unit: "°C", get: h => h.Ta, dp: 1, cls: h => h.Ta == null ? "" : h.Ta >= 30 ? "hot" : h.Ta <= 5 ? "cool" : "" },
+    { label: "Relative humidity", unit: "%", get: h => h.rh, dp: 0 },
+    { label: "Wind speed (10 m)", unit: "km/h", get: h => h.V, dp: 0 },
+    { label: "Precipitation", unit: "mm", get: h => h.p, dp: 1, cls: h => (h.p || 0) >= 0.2 ? "rain" : "" },
+    ...(useArchive ? [] : [{ label: "Chance of rain", unit: "%", get: h => h.pp, dp: 0, cls: h => (h.pp || 0) >= 50 ? "rain" : "" }]),
+    { label: "Solar radiation", unit: "W/m²", get: h => h.sw, dp: 0 },
+    { label: "Evaporation rate", unit: "kg/m²/h", get: h => h.E, dp: 2, cls: h => evClass(h.E), rowCls: "ev" }
+  ];
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    if (r.rowCls) tr.className = r.rowCls;
+    const l = document.createElement("td"); l.className = "lab";
+    l.innerHTML = `<span></span> <small></small>`;
+    l.children[0].textContent = r.label; l.children[1].textContent = r.unit;
+    tr.appendChild(l);
+    hours.forEach((h, i) => {
+      const td = document.createElement("td");
+      td.textContent = fmt(r.get(h), r.dp);
+      const c = r.cls ? r.cls(h) : "";
+      if (c) td.classList.add(c);
+      else if (h.sw === 0) td.classList.add("night");
+      if (i > 0 && h.t.slice(11, 13) === "00") td.classList.add("daystart");
+      if (i === 0) td.classList.add("pour");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  out.appendChild(wrap);
+}
+
+window.addEventListener("error", (e) => showStatus(`Something went wrong in the page: ${e.message}`, true));
+window.addEventListener("unhandledrejection", (e) => showStatus(`Something went wrong in the page: ${e.reason && e.reason.message || e.reason}`, true));
+$("q").addEventListener("input", () => {
+  if (norm($("q").value) !== state.loc.query) $("chosen").textContent = `Will look up "${$("q").value.trim()}" when you press the button, or press Find to pick a match.`;
+  else showChosen();
+});
+showStatus("Loading the forecast for the example pour…");
+initForm();
+$("form").addEventListener("submit", run);
+$("findbtn").addEventListener("click", findLocation);
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); findLocation(); } });
+run();
+</script>
+</body>
+</html>
